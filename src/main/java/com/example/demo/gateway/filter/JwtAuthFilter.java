@@ -25,19 +25,20 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
         return (exchange, chain) -> {
             String path = exchange.getRequest().getURI().getPath();
 
-            // Rotas públicas
-            if (path.startsWith("/auth/login") || path.startsWith("/auth/register") ||
-                    (path.startsWith("/events") && exchange.getRequest().getMethod().name().equals("GET"))) {
+            // ✅ Rotas públicas — não exigem token
+            if (path.startsWith("/auth/login") ||
+                    path.startsWith("/auth/register") ||
+                    (path.startsWith("/events") && "GET".equals(exchange.getRequest().getMethod().name()))) {
                 return chain.filter(exchange);
             }
 
-            // Cabeçalho de autorização
             String authHeader = exchange.getRequest().getHeaders().getFirst("Authorization");
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                 return exchange.getResponse().setComplete();
             }
 
+            // ✅ Extrai o token e valida assinatura JWT
             String token = authHeader.substring(7);
             try {
                 Jwts.parserBuilder()
@@ -46,6 +47,7 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                         .parseClaimsJws(token);
                 return chain.filter(exchange);
             } catch (JwtException e) {
+                System.err.println("Token inválido: " + e.getMessage());
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                 return exchange.getResponse().setComplete();
             }
